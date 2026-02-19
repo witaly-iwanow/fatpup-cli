@@ -13,6 +13,8 @@ namespace
 {
 constexpr const char* kAnsiYellow = "\033[33m";
 constexpr const char* kAnsiReset = "\033[0m";
+constexpr const char* kWhiteSquareSymbol = u8"\u25A1";
+constexpr const char* kBlackSquareSymbol = u8"\u25A7";
 
 const char* PieceToSymbol(const fatpup::Square& square)
 {
@@ -50,9 +52,7 @@ char PieceToFenChar(const fatpup::Square& square)
     }
 
     if (!square.isWhite())
-    {
         symbol = static_cast<char>(std::tolower(static_cast<unsigned char>(symbol)));
-    }
 
     return symbol;
 }
@@ -66,9 +66,11 @@ void PrintBoard(const fatpup::Position& position)
         for (int col = 0; col < fatpup::BOARD_SIZE; ++col)
         {
             const fatpup::Square square = position.square(row, col);
-            const char* pieceSymbol = PieceToSymbol(square);
-            const char* emptySymbol = (((row + col) & 1) ? u8"■" : " ");
-            std::cout << (pieceSymbol ? pieceSymbol : emptySymbol) << " ";
+            auto sym = PieceToSymbol(square);
+            if (!sym)
+                sym = (col + row) & 1 ? kWhiteSquareSymbol : kBlackSquareSymbol;
+
+            std::cout << sym << " ";
         }
         std::cout << "\n";
     }
