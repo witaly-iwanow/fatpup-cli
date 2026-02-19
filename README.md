@@ -62,5 +62,5 @@ Black played: e7-e5
 1 ♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜
   a b c d e f g h
 
-White
+White>
 ```
