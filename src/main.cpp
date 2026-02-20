@@ -12,20 +12,21 @@
 namespace
 {
 constexpr const char* kAnsiYellow = "\033[33m";
+constexpr const char* kAnsiWhite = "\033[37m";
+constexpr const char* kAnsiBlue = "\033[34m";
 constexpr const char* kAnsiReset = "\033[0m";
-constexpr const char* kWhiteSquareSymbol = u8"\u25A1";
-constexpr const char* kBlackSquareSymbol = u8"\u25A7";
+constexpr const char* kEmptySquareSymbol = u8"\u25A0";
 
 const char* PieceToSymbol(const fatpup::Square& square)
 {
     switch (square.pieceWithColor())
     {
-    case fatpup::Pawn | fatpup::Black: return u8"♙";
-    case fatpup::Knight | fatpup::Black: return u8"♘";
-    case fatpup::Bishop | fatpup::Black: return u8"♗";
-    case fatpup::Rook | fatpup::Black: return u8"♖";
-    case fatpup::Queen | fatpup::Black: return u8"♕";
-    case fatpup::King | fatpup::Black: return u8"♔";
+    case fatpup::Pawn | fatpup::Black: return u8"♟";
+    case fatpup::Knight | fatpup::Black: return u8"♞";
+    case fatpup::Bishop | fatpup::Black: return u8"♝";
+    case fatpup::Rook | fatpup::Black: return u8"♜";
+    case fatpup::Queen | fatpup::Black: return u8"♛";
+    case fatpup::King | fatpup::Black: return u8"♚";
     case fatpup::Pawn | fatpup::White: return u8"♟";
     case fatpup::Knight | fatpup::White: return u8"♞";
     case fatpup::Bishop | fatpup::White: return u8"♝";
@@ -68,9 +69,21 @@ void PrintBoard(const fatpup::Position& position)
             const fatpup::Square square = position.square(row, col);
             auto sym = PieceToSymbol(square);
             if (!sym)
-                sym = (col + row) & 1 ? kWhiteSquareSymbol : kBlackSquareSymbol;
+            {
+                sym = kEmptySquareSymbol;
+                const bool isWhiteSquare = ((col + row) & 1) != 0;
+                std::cout << (isWhiteSquare ? kAnsiWhite : kAnsiBlue) << sym << kAnsiReset << " ";
+                continue;
+            }
 
-            std::cout << sym << " ";
+            if (square.isWhite())
+            {
+                std::cout << sym << " ";
+            }
+            else
+            {
+                std::cout << kAnsiBlue << sym << kAnsiReset << " ";
+            }
         }
         std::cout << "\n";
     }
