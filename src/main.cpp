@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
+#include <ctime>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -214,6 +216,131 @@ void PrintStatus(const fatpup::Position& position)
     }
 }
 
+bool IsGameOverState(fatpup::Position::State state)
+{
+    return state == fatpup::Position::State::Checkmate || state == fatpup::Position::State::Stalemate;
+}
+
+std::string PgnResultToken(const fatpup::Position& position)
+{
+    const fatpup::Position::State state = position.getState();
+    if (state == fatpup::Position::State::Checkmate)
+    {
+        return position.isWhiteTurn() ? "0-1" : "1-0";
+    }
+    if (state == fatpup::Position::State::Stalemate)
+    {
+        return "1/2-1/2";
+    }
+    return "*";
+}
+
+std::string CurrentDateForPgnTag()
+{
+    const std::time_t now = std::time(nullptr);
+    std::tm localTime = {};
+#if defined(_WIN32)
+    localtime_s(&localTime, &now);
+#else
+    localtime_r(&now, &localTime);
+#endif
+
+    char buffer[11] = {};
+    std::snprintf(
+        buffer,
+        sizeof(buffer),
+        "%04d.%02d.%02d",
+        localTime.tm_year + 1900,
+        localTime.tm_mon + 1,
+        localTime.tm_mday);
+    return std::string(buffer);
+}
+
+const char* SidePlayerName(bool whiteSide, bool userPlaysWhite)
+{
+    const bool userOnThisSide = (whiteSide == userPlaysWhite);
+    return userOnThisSide ? "NN" : "Fatpup";
+}
+
+std::string GameScoreToPgn(
+    const fatpup::Position& startPosition,
+    const std::vector<fatpup::Move>& moveHistory,
+    int startFullMoveNumber,
+    const fatpup::Position& currentPosition)
+{
+    fatpup::Position replayPosition = startPosition;
+    int fullMoveNumber = std::max(1, startFullMoveNumber);
+    std::vector<std::string> tokens;
+    tokens.reserve(moveHistory.size() * 2 + 2);
+
+    for (const fatpup::Move move : moveHistory)
+    {
+        const bool whiteToMove = replayPosition.isWhiteTurn();
+        if (whiteToMove)
+        {
+            tokens.push_back(std::to_string(fullMoveNumber) + ".");
+        }
+        else if (tokens.empty())
+        {
+            tokens.push_back(std::to_string(fullMoveNumber) + "...");
+        }
+
+        tokens.push_back(replayPosition.moveToStringPGN(move));
+        replayPosition.moveDone(move);
+
+        if (!whiteToMove)
+        {
+            ++fullMoveNumber;
+        }
+    }
+
+    tokens.push_back(PgnResultToken(currentPosition));
+
+    std::ostringstream out;
+    for (std::size_t i = 0; i < tokens.size(); ++i)
+    {
+        if (i)
+        {
+            out << " ";
+        }
+        out << tokens[i];
+    }
+    return out.str();
+}
+
+void PrintGameOverPgn(
+    const fatpup::Position& startPosition,
+    const std::vector<fatpup::Move>& moveHistory,
+    int startFullMoveNumber,
+    const fatpup::Position& currentPosition,
+    bool userPlaysWhite)
+{
+    const std::string result = PgnResultToken(currentPosition);
+    std::cout
+        << "\n"
+        << "[Date \"" << CurrentDateForPgnTag() << "\"]\n"
+        << "[White \"" << SidePlayerName(true, userPlaysWhite) << "\"]\n"
+        << "[Black \"" << SidePlayerName(false, userPlaysWhite) << "\"]\n"
+        << "[Result \"" << result << "\"]\n"
+        << "\n"
+        << GameScoreToPgn(startPosition, moveHistory, startFullMoveNumber, currentPosition)
+        << "\n\n";
+}
+
+void PrintStatusAndScoreIfGameOver(
+    const fatpup::Position& position,
+    const fatpup::Position& startPosition,
+    const std::vector<fatpup::Move>& moveHistory,
+    int startFullMoveNumber,
+    bool userPlaysWhite)
+{
+    PrintStatus(position);
+    if (IsGameOverState(position.getState()))
+    {
+        PrintGameOverPgn(startPosition, moveHistory, startFullMoveNumber, position, userPlaysWhite);
+    }
+}
+
 void PrintHelp()
 {
     std::cout
@@ -221,6 +348,7 @@ void PrintHelp()
         << "  e2e4 / e7e8q  make a move (use q/r/b/n for promotion)\n"
         << "  board          print board\n"
         << "  moves          list legal moves for side to move\n"
+        << "  score          print current game score in PGN format\n"
         << "  back           take 1 move back (2 plies)\n"
         << "  getfen         print current position as FEN\n"
         << "  game [white|black]  start a new game and choose your side\n"
@@ -493,12 +621,12 @@ int main()
     fullMoveNumber = startFullMoveNumber;
 
     PrintHelp();
-    PrintStatus(position);
+    PrintStatusAndScoreIfGameOver(position, startPosition, moveHistory, startFullMoveNumber, userPlaysWhite);
 
     while (true)
     {
         const fatpup::Position::State state = position.getState();
-        const bool gameOver = (state == fatpup::Position::State::Checkmate || state == fatpup::Position::State::Stalemate);
+        const bool gameOver = IsGameOverState(state);
         const bool userToMove = (position.isWhiteTurn() == userPlaysWhite);
 
         if (!gameOver && !userToMove)
@@ -519,7 +647,7 @@ int main()
             }
 
             PrintBoard(position);
-            PrintStatus(position);
+            PrintStatusAndScoreIfGameOver(position, startPosition, moveHistory, startFullMoveNumber, userPlaysWhite);
             continue;
         }
 
@@ -554,6 +682,11 @@ int main()
             PrintLegalMoves(position);
             continue;
         }
+        if (command == "score")
+        {
+            PrintGameOverPgn(startPosition, moveHistory, startFullMoveNumber, position, userPlaysWhite);
+            continue;
+        }
         if (command == "back")
         {
             if (moveHistory.empty())
@@ -576,7 +709,7 @@ int main()
 
             std::cout << "Reverted " << pliesToRevert << " ply.\n";
             PrintBoard(position);
-            PrintStatus(position);
+            PrintStatusAndScoreIfGameOver(position, startPosition, moveHistory, startFullMoveNumber, userPlaysWhite);
             continue;
         }
         if (command == "getfen")
@@ -608,7 +741,7 @@ int main()
             startFullMoveNumber = 1;
             halfMoveClock = startHalfMoveClock;
             fullMoveNumber = startFullMoveNumber;
-            PrintStatus(position);
+            PrintStatusAndScoreIfGameOver(position, startPosition, moveHistory, startFullMoveNumber, userPlaysWhite);
             continue;
         }
         if (command.size() > 4 && command.substr(0, 4) == "fen ")
@@ -629,7 +762,7 @@ int main()
             halfMoveClock = startHalfMoveClock;
             fullMoveNumber = startFullMoveNumber;
             PrintBoard(position);
-            PrintStatus(position);
+            PrintStatusAndScoreIfGameOver(position, startPosition, moveHistory, startFullMoveNumber, userPlaysWhite);
             continue;
         }
 
@@ -661,7 +794,7 @@ int main()
 
         std::cout << (userMoveByWhite ? "White" : "Black") << " played: " << moveText << "\n";
         PrintBoard(position);
-        PrintStatus(position);
+        PrintStatusAndScoreIfGameOver(position, startPosition, moveHistory, startFullMoveNumber, userPlaysWhite);
     }
 
     delete engine;

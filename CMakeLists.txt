@@ -20,7 +20,7 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "Build fatpup examples" FORCE)
 FetchContent_Declare(
     fatpup
     GIT_REPOSITORY https://github.com/witaly-iwanow/fatpup.git
-    GIT_TAG 844e5e4e791b2b9ef6381f2dda32cbf52a88f491
+    GIT_TAG b2a2237f4274222ee5732c8d32625765da24dec9
 )
 
 FetchContent_MakeAvailable(fatpup)

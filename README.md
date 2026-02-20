@@ -29,6 +29,7 @@ Commands:
   e2e4 / e7e8q  make a move (use q/r/b/n for promotion)
   board          print board
   moves          list legal moves for side to move
+  score          print current game score in PGN format
   back           take 1 move back (2 plies)
   getfen         print current position as FEN
   game [white|black]  start a new game and choose your side
